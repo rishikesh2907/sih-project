@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VitalEdge — AI anomaly detection for disaster-response wearables</title>
+  <meta name="description"
+    content="VitalEdge is a rugged wearable that streams six physiological signals to an LSTM autoencoder and raises the alarm before a responder has to ask.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+
+<body>
+
+  <header class="site">
+    <div class="site-nav">
+      <div class="brand">
+        <span class="mark"></span>
+        <span>VitalEdge<small>DISASTER-RESPONSE WEARABLE · REV C</small></span>
+      </div>
+      <nav class="links">
+        <a href="#device">Device</a>
+        <a href="#hardware">Hardware</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#deployment">Deployment</a>
+      </nav>
+      <span class="build-badge">Prototype build · SIH demo</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============ HERO ============ -->
+    <section class="hero wrap">
+      <div class="hero-grid">
+        <div>
+          <h1>Vitals that keep reporting <span class="accent-word">after the network drops.</span></h1>
+          <p class="lede">VitalEdge is a rugged wrist-worn monitor built for flood camps, mass-casualty triage and
+            clinics that can't count on steady power or signal. It streams six physiological signals into a 60-second
+            rolling window, feeds an LSTM autoencoder for anomaly detection, and flags a responder the moment the
+            pattern drifts from baseline.</p>
+          <div class="hero-stats">
+            <div><span class="num">60×6</span><span class="lbl">second rolling input window</span></div>
+            <div><span class="num">0.999</span><span class="lbl">ROC-AUC on the offline eval set</span></div>
+            <div><span class="num">&lt;2s</span><span class="lbl">alert-to-screen latency</span></div>
+          </div>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="glyph">
+            <svg class="pulse-line" viewBox="0 0 200 40" fill="none">
+              <polyline points="0,20 40,20 52,4 64,36 76,20 90,20 98,10 106,30 116,20 200,20" stroke="#3ddc8f"
+                stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ INTERACTIVE DEVICE + LIVE STATE ============ -->
+    <section class="section device-section wrap" id="device">
+      <div class="section-head">
+        <h2>Inspect the device, then trigger an abnormal pattern</h2>
+        <p>Drag to rotate, scroll to zoom, and pull the housing apart to see what's inside. The watch body, strap and
+          buttons never change — only its screen does, driven by the same simulated sensor stream shown in the panel
+          beside it.</p>
+      </div>
+
+      <div class="device-grid">
+
+        <div class="viewer-card">
+          <div class="viewer-head">
+            <span class="modelname">VitalEdge · unit 01</span>
+            <span class="tag">procedural reference model · GLTF-loader ready</span>
+          </div>
+          <div id="viewer-mount">
+            <div class="viewer-loading" id="viewer-loading">Loading model…</div>
+            <div class="viewer-hint">Drag to rotate · scroll to zoom</div>
+          </div>
+          <div class="viewer-toolbar">
+            <button class="tbtn active" id="toggle-rotate" type="button"><span class="dot"></span>Auto-rotate</button>
+            <button class="tbtn" id="toggle-explode" type="button"><span class="dot"></span>Exploded view</button>
+            <button class="tbtn" id="toggle-reset" type="button"><span class="dot"></span>Reset view</button>
+          </div>
+          <div class="part-legend">
+            <span class="chip"><i style="background:#3ddc8f"></i>Touchscreen</span>
+            <span class="chip"><i style="background:#ff4d4d"></i>SOS button</span>
+            <span class="chip"><i style="background:#c9d1cb"></i>Secondary button</span>
+            <span class="chip"><i style="background:#24e07a"></i>PPG optical array</span>
+            <span class="chip"><i style="background:#9aa39c"></i>Temp sensor</span>
+            <span class="chip"><i style="background:#d8b463"></i>Charging contacts</span>
+          </div>
+        </div>
+
+        <div class="state-card">
+          <div class="state-head">
+            <h3>Live monitoring</h3>
+            <span class="clock" id="state-clock">Last update —</span>
+          </div>
+
+          <div class="telemetry-strip">
+            <span><span class="dot-live" id="conn-dot"></span><span id="conn-status">● CONNECTING…</span></span>
+            <span id="battery-status">Battery —</span>
+            <span class="buffer-pill" id="buffer-badge">CONNECTING TO BACKEND…</span>
+          </div>
+
+          <div class="status-banner" id="status-banner">
+            <div class="sbicon" id="status-icon">✓</div>
+            <div class="sbtext">
+              <div class="t1" id="status-t1">NORMAL</div>
+              <div class="t2" id="status-t2">All vitals within expected baseline</div>
+            </div>
+          </div>
+
+          <div class="alert-panel" id="alert-panel">
+            <div class="ap-line1" id="alert-line1">✓ No abnormality detected</div>
+            <div id="alert-line2">Waiting for backend risk assessment</div>
+          </div>
+
+          <div class="ml-score">
+            <div>
+              <div class="ml-label">Health Anomaly Score (MSE)</div>
+              <div class="ml-value">
+                <span>MSE <strong id="ml-mse">—</strong></span>
+                <span>Threshold <strong id="ml-threshold">1.78</strong></span>
+                <span>Health Score <strong id="health-score">—</strong></span>
+                <span>Environmental Risk Score <strong id="environment-score">—</strong></span>
+                <span>Overall Risk Score <strong id="final-risk-score">—</strong></span>
+              </div>
+              <span class="ml-chip" id="ml-chip">NORMAL</span>
+            </div>
+
+            <div class="actions">
+              <button class="btn btn-warning" id="btn-abnormal" type="button">Simulate abnormality</button>
+              <button class="btn btn-normal" id="btn-resume" type="button">Resume normal</button>
+            </div>
+            <button class="emergency-call" id="btn-emergency-call" type="button" disabled>
+              No active emergency
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+        <div class="section-head" style="margin-top:44px;">
+          <h2>Six-signal input window</h2>
+          <p>Live physical readings from the six-signal input window.</p>
+        </div>
+        <div class="sensor-grid">
+          <div class="sensor-card">
+            <span class="sc-label">HR / BVP</span>
+            <span class="sc-value" id="metric-hr">—</span>
+            <span class="sc-sub">PPG-derived</span>
+          </div>
+          <div class="sensor-card">
+            <span class="sc-label">ACC</span>
+            <span class="sc-value" id="metric-activity">—</span>
+            <span class="sc-sub">accelerometer proxy</span>
+          </div>
+          <div class="sensor-card">
+            <span class="sc-label">TEMP</span>
+            <span class="sc-value" id="metric-temperature">—</span>
+            <span class="sc-sub">skin contact</span>
+          </div>
+          <div class="sensor-card">
+            <span class="sc-label">RESP</span>
+            <span class="sc-value" id="metric-respiration">—</span>
+            <span class="sc-sub">PPG waveform</span>
+          </div>
+          <div class="sensor-card">
+            <span class="sc-label">EDA</span>
+            <span class="sc-value" id="metric-eda">—</span>
+            <span class="sc-sub">strap electrodes</span>
+          </div>
+          <div class="sensor-card">
+            <span class="sc-label">ECG</span>
+            <span class="sc-value" id="metric-ecg">—</span>
+            <span class="sc-sub">strap electrodes</span>
+          </div>
+        </div>
+
+        <div class="graph-row">
+          <div class="graph-card">
+            <h4>Heart rate — 60s trend</h4>
+            <canvas id="graph-hr"></canvas>
+          </div>
+          <div class="graph-card">
+            <h4>Respiration — 60s trend</h4>
+            <canvas id="graph-resp"></canvas>
+          </div>
+          <div class="graph-card">
+            <h4>ECG — 60s trend</h4>
+            <canvas id="graph-ecg"></canvas>
+          </div>
+        </div>
+
+        <div class="weather-panel" aria-live="polite">
+          <div class="weather-head">
+            <div>
+              <span class="weather-kicker">Environmental conditions</span>
+              <h3>Environment</h3>
+            </div>
+            <span class="weather-mode" id="weather-mode">NORMAL</span>
+          </div>
+          <div class="weather-grid">
+            <div class="weather-card">
+              <span class="weather-label">Temperature</span>
+              <strong id="weather-temperature">—</strong>
+              <span class="weather-unit">ambient</span>
+            </div>
+            <div class="weather-card">
+              <span class="weather-label">Humidity</span>
+              <strong id="weather-humidity">—</strong>
+              <span class="weather-unit">relative humidity</span>
+            </div>
+            <div class="weather-card">
+              <span class="weather-label">Air quality</span>
+              <strong id="weather-aqi">—</strong>
+              <span class="weather-unit">AQI</span>
+            </div>
+            <div class="weather-card">
+              <span class="weather-label">PM2.5</span>
+              <strong id="weather-pm25">—</strong>
+              <span class="weather-unit">µg/m³</span>
+            </div>
+            <div class="weather-card">
+              <span class="weather-label">PM10</span>
+              <strong id="weather-pm10">—</strong>
+              <span class="weather-unit">µg/m³</span>
+            </div>
+            <div class="weather-card">
+              <span class="weather-label">UV index</span>
+              <strong id="weather-uv">—</strong>
+              <span class="weather-unit">exposure</span>
+            </div>
+            <div class="weather-card weather-card-wide">
+              <span class="weather-label">Location</span>
+              <strong id="weather-location">—</strong>
+              <span class="weather-unit" id="weather-source">Source —</span>
+            </div>
+          </div>
+        </div>
+    </section>
+
+    <!-- ============ HARDWARE BREAKDOWN ============ -->
+    <section class="section wrap" id="hardware">
+      <div class="section-head">
+        <h2>What's actually on the wrist</h2>
+        <p>Every part below exists as a modelled component on the device to the left — this is the legend, not a
+          marketing diagram.</p>
+      </div>
+      <div class="hw-grid">
+        <div class="hw-card">
+          <div class="hw-ico">▣</div>
+          <h4>Touchscreen display</h4>
+          <p>Sunlight-readable panel behind sealed glass, showing HR, SpO2, temperature and status at a glance.</p>
+        </div>
+        <div class="hw-card">
+          <div class="hw-ico">!</div>
+          <h4>SOS button</h4>
+          <p>Recessed red button on the right edge. A long press pushes a manual distress signal regardless of sensor
+            state.</p>
+        </div>
+        <div class="hw-card">
+          <div class="hw-ico">●</div>
+          <h4>Secondary button</h4>
+          <p>Cycles screen modes and confirms actions — mutes an alert or wakes the display without touching glass in
+            wet or gloved conditions.</p>
+        </div>
+        <div class="hw-card">
+          <div class="hw-ico">◎</div>
+          <h4>Rear PPG sensor array</h4>
+          <p>Multi-LED optical assembly on the case back reads heart rate and SpO2, and its waveform envelope is where
+            the respiration estimate comes from.</p>
+        </div>
+        <div class="hw-card">
+          <div class="hw-ico">✦</div>
+          <h4>Optical LED cluster</h4>
+          <p>Green, red and infrared emitters paired with a photodiode, tuned for varied skin tones and low-light field
+            use.</p>
+        </div>
+        <div class="hw-card">
+          <div class="hw-ico">°</div>
+          <h4>Skin-temperature sensor</h4>
+          <p>Dedicated contact thermistor next to the optical array, separate from the PPG reading for cleaner data.</p>
+        </div>
+        <div class="hw-card">
+          <div class="hw-ico">⎓</div>
+          <h4>Charging contacts</h4>
+          <p>Four gold pogo-pin pads on the case back mate with a magnetic dock — no port to seal or corrode.</p>
+        </div>
+        <div class="hw-card">
+          <div class="hw-ico">⚙</div>
+          <h4>MCU, battery &amp; radio</h4>
+          <p>Internal PCB carries the ESP32, a six-channel acquisition front end for EDA and ECG at the strap contacts,
+            and the wireless module — visible in the exploded view.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ARCHITECTURE / DATA FLOW ============ -->
+    <section class="section wrap" id="architecture">
+      <div class="section-head">
+        <h2>How a reading becomes an alert</h2>
+        <p>Every step below except the last runs inside Flask. This page never computes an anomaly score — it only polls
+          and displays what the backend decides.</p>
+      </div>
+
+      <div class="flow">
+        <div class="flow-node">
+          <span class="fn-index">01</span>
+          <h4>Wearable / sensor stream</h4>
+          <p>The simulated wearable generates one six-feature sensor sample every second and sends it to the Flask
+            backend.</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <span class="fn-index">02</span>
+          <h4>Flask backend</h4>
+          <p>Ingests the stream and owns the rolling 60-second window — the browser keeps no buffer of its own.</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <span class="fn-index">03</span>
+          <h4>6-feature preprocessing</h4>
+          <p>Assembles the window into the exact order the model expects: <strong>HR/BVP, ACC, TEMP, RESP, EDA,
+              ECG</strong>.</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <span class="fn-index">04</span>
+          <h4>ONNX LSTM autoencoder</h4>
+          <p><strong>VitalEdgeDeepAutoencoder</strong> (<code>vitaledge_6d_deep_autoencoder.onnx</code>) reconstructs
+            the sequence — 2 LSTM layers, hidden size 64, input <code>(1, 60, 6)</code>.</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <span class="fn-index">05</span>
+          <h4>Reconstruction MSE → threshold</h4>
+          <p>MSE above <strong>1.78</strong> resolves to <strong>ABNORMAL</strong>; at or below it,
+            <strong>NORMAL</strong>.
+          </p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node is-live">
+          <span class="fn-index">06 · this page</span>
+          <h4>Dashboard + 3D watch</h4>
+          <p>Receives the inference result from <code>POST /api/data</code> and renders the verdict on the graphs, alert
+            panel and watch screen.</p>
+        </div>
+      </div>
+
+      <p class="flow-note">
+        The frontend has no independent ML path. It generates one sensor sample every second and sends it to
+        <code>POST /api/data</code>. Flask owns the rolling 60-second window, runs the ONNX autoencoder and calculates
+        the reconstruction MSE. The returned result is passed to <code>updateFromBackend()</code>, which updates the
+        dashboard, graphs and watch screen. <code>Simulate abnormality</code> and <code>Resume normal</code> call
+        <code>POST /api/simulate-abnormal</code> and <code>POST /api/reset</code> on the backend directly.
+      </p>
+    </section>
+
+    <!-- ============ DEPLOYMENT ============ -->
+    <section class="section wrap" id="deployment">
+      <div class="section-head">
+        <h2>Where it's meant to be worn</h2>
+      </div>
+      <div class="deploy-grid">
+        <div class="deploy-card">
+          <span class="tagn">FLOOD &amp; CYCLONE CAMPS</span>
+          <h4>Relief camps with patchy power</h4>
+          <p>Long battery life and a screen that reads NORMAL or ALERT without a phone nearby, for volunteers checking
+            dozens of people a shift.</p>
+        </div>
+        <div class="deploy-card">
+          <span class="tagn">MASS-CASUALTY TRIAGE</span>
+          <h4>First minutes after an incident</h4>
+          <p>One glance at HR, SpO2 and temperature helps a responder decide who needs attention first, before a full
+            assessment is possible.</p>
+        </div>
+        <div class="deploy-card">
+          <span class="tagn">REMOTE CLINICS</span>
+          <h4>Low-connectivity monitoring</h4>
+          <p>Local risk scoring on the ESP32 means an alert still fires even if the backend link is down, then syncs
+            once connectivity returns.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site wrap">
+    <div class="footer-row">
+      <p>VitalEdge — engineering prototype prepared for Smart India Hackathon. Simulated data; not a certified medical
+        device.</p>
+      <span class="footer-stack">three.js · vanilla JS · Flask + ONNX-ready backend hooks</span>
+    </div>
+  </footer>
+
+  <script type="module" src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+
+</html>
