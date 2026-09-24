@@ -1,3 +1,4 @@
+
 # ===============================================================================
 # VITALEDGE - FLASK BACKEND
 # Website -> Flask -> Rolling 60s Window -> ONNX -> Health Anomaly
@@ -24,6 +25,7 @@ import onnxruntime as ort
 import threading
 import os
 import time
+
 import requests
 
 
@@ -199,6 +201,8 @@ latest_result = {
     "environment_score": 0.0,
 
     "final_risk_score": 0.0,
+
+    "risk_threshold": WARNING_THRESHOLD,
 
     "risk_reason": "Waiting for 60-second window",
 
@@ -1081,6 +1085,9 @@ def process_sensor_sample(values):
                 "final_risk_score":
                     0.0,
 
+                "risk_threshold":
+                    WARNING_THRESHOLD,
+
                 "risk_reason":
                     "Collecting 60-second physiological window",
 
@@ -1178,6 +1185,9 @@ def process_sensor_sample(values):
 
             "final_risk_score":
                 final_risk_score,
+
+            "risk_threshold":
+                WARNING_THRESHOLD,
 
             "risk_reason":
                 risk_reason,
@@ -1335,6 +1345,32 @@ def get_status():
         return jsonify(
             result
         )
+
+
+# ============================================================================
+# ON-DEMAND RISK ASSESSMENT
+# ============================================================================
+
+@app.route(
+    "/api/risk-assessment",
+    methods=["POST"]
+)
+def risk_assessment():
+
+    try:
+
+        data = request.get_json(silent=True) or {}
+        sensor_values = validate_sensor_data(data.get("values", data))
+        return jsonify(process_sensor_sample(sensor_values)), 200
+
+    except ValueError as e:
+
+        return jsonify({"error": str(e)}), 400
+
+    except Exception as e:
+
+        print("ERROR /api/risk-assessment:", e)
+        return jsonify({"error": "Risk assessment failed", "details": str(e)}), 500
 
 
 # ==============================================================================
@@ -1505,6 +1541,9 @@ def reset_simulation():
 
             "final_risk_score":
                 0.0,
+
+            "risk_threshold":
+                WARNING_THRESHOLD,
 
             "risk_reason":
                 "Waiting for 60-second window",
@@ -1727,6 +1766,7 @@ if __name__ == "__main__":
 
     print("API:")
     print("POST /api/data")
+    print("POST /api/risk-assessment")
     print("GET  /api/status")
     print("GET  /api/environment")
     print("POST /api/simulate-abnormal")

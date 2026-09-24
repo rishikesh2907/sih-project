@@ -12,7 +12,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Figtree:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v='20260923-mobile-app-1') }}">
   <script type="importmap">
 {
   "imports": {
@@ -152,6 +153,163 @@
           </div>
 
         </div>
+
+        <aside class="phone-simulator" aria-label="VitalEdge mobile app simulator">
+          <div class="phone-shell">
+            <div class="phone-island" aria-hidden="true"></div>
+            <div class="phone-screen">
+              <div class="phone-statusbar">
+                <span id="sim-clock">--:--</span>
+                <span class="phone-status-icons" aria-hidden="true">
+                  <svg viewBox="0 0 18 12" width="17" height="11"><path d="M1 10h2v1H1zM5 7h2v4H5zM9 4h2v7H9zM13 1h2v10h-2z" fill="currentColor"/></svg>
+                  <svg viewBox="0 0 26 12" width="24" height="11"><rect x=".5" y=".5" width="22" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+                </span>
+              </div>
+
+              <header class="sim-appbar">
+                <div>
+                  <span class="sim-kicker">VitalEdge</span>
+                  <strong>Responder 01</strong>
+                </div>
+                <span class="sim-connection" id="sim-connection"><i></i> LIVE</span>
+              </header>
+
+              <nav class="ve-nav" aria-label="App sections">
+                <button type="button" class="ve-nav-btn is-active" data-view="home" aria-current="page">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7M5.5 9.8V20h13V9.8M10 20v-5.5h4V20"/></svg>
+                  <span>Home</span>
+                </button>
+                <button type="button" class="ve-nav-btn" data-view="history">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5v4h4M12 7.5V12l3 2"/></svg>
+                  <span>Health History</span>
+                </button>
+                <button type="button" class="ve-nav-btn" data-view="alerts">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg>
+                  <span>Alerts</span>
+                  <b class="ve-badge" id="ve-alert-badge" hidden>0</b>
+                </button>
+                <button type="button" class="ve-nav-btn ve-nav-sos" data-view="sos">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 21 19H3zM12 10v4M12 16.6v.1"/></svg>
+                  <span>SOS</span>
+                </button>
+              </nav>
+
+              <div class="ve-views">
+                <!-- ============ HOME ============ -->
+                <div class="ve-view sim-live-pane" data-view="home">
+                  <div class="sim-status" id="sim-status">
+                    <span class="sim-status-icon" id="sim-status-icon">✓</span>
+                    <span class="sim-status-text">
+                      <small>Current health status</small>
+                      <strong id="sim-status-title">NORMAL</strong>
+                      <em id="sim-status-copy">All vitals within baseline</em>
+                    </span>
+                  </div>
+
+                  <section class="ve-card sim-telemetry" aria-label="Overall risk">
+                    <div class="ve-card-head">
+                      <h3>Overall risk</h3>
+                      <span class="ve-pill" id="sim-risk-level">NORMAL</span>
+                    </div>
+                    <div class="sim-risk-grid" id="sim-risk-grid">
+                      <div class="sim-risk-total sim-risk-visual">
+                        <div class="sim-risk-visual-head">
+                          <small>Overall risk score</small>
+                          <strong id="sim-final-score">—</strong>
+                        </div>
+                        <div class="sim-risk-visual-track" aria-label="Overall risk progress">
+                          <span id="sim-risk-visual-fill"></span>
+                          <i aria-hidden="true"></i>
+                        </div>
+                        <div class="sim-risk-visual-scale"><span>Low</span><span>Medium</span><span>High</span></div>
+                      </div>
+                      <div><small>Health</small><strong id="sim-health-score">—</strong></div>
+                      <div><small>Environment</small><strong id="sim-environment-score">—</strong></div>
+                    </div>
+                    <div class="ve-meta">
+                      <span>Analysis window</span>
+                      <strong id="sim-window-state">0/60s</strong>
+                      <i class="sim-risk-meter" aria-hidden="true"><span id="sim-risk-meter-fill"></span></i>
+                    </div>
+                  </section>
+
+                  <section class="ve-card sim-overview" aria-labelledby="sim-overview-title">
+                    <div class="ve-card-head"><h3 id="sim-overview-title">Health vitals</h3><span class="ve-note" id="sim-buffer">0/60s</span></div>
+                    <div class="sim-vitals">
+                      <div><span>Heart rate</span><strong id="sim-hr">—</strong></div>
+                      <div><span>Movement</span><strong id="sim-activity">—</strong></div>
+                      <div><span>Skin temp</span><strong id="sim-temperature">—</strong></div>
+                      <div><span>Breathing</span><strong id="sim-respiration">—</strong></div>
+                      <div><span>Skin response</span><strong id="sim-eda">—</strong></div>
+                      <div><span>Heart signal</span><strong id="sim-ecg">—</strong></div>
+                    </div>
+                  </section>
+
+                  <section class="ve-card sim-environment" aria-labelledby="sim-environment-title">
+                    <div class="ve-card-head"><h3 id="sim-environment-title">Environment</h3><span class="ve-pill" id="sim-weather-mode">NORMAL</span></div>
+                    <div class="sim-weather-grid">
+                      <span>Temperature <strong id="sim-weather-temperature">—</strong></span>
+                      <span>Humidity <strong id="sim-weather-humidity">—</strong></span>
+                      <span>Air quality <strong id="sim-weather-aqi">—</strong></span>
+                      <span>UV index <strong id="sim-weather-uv">—</strong></span>
+                    </div>
+                  </section>
+
+                  <section class="ve-card sim-controls" aria-labelledby="sim-controls-title">
+                    <div class="ve-card-head"><h3 id="sim-controls-title">Check &amp; simulate</h3></div>
+                    <div class="sim-actions">
+                      <button type="button" class="sim-button sim-button-risk" id="sim-risk-button">Risk assessment</button>
+                      <button type="button" class="sim-button sim-button-anomaly" id="sim-anomaly-button">Simulate abnormality</button>
+                      <button type="button" class="sim-button sim-button-normal" id="sim-resume-button">Resume normal</button>
+                    </div>
+                  </section>
+
+                  <div class="sim-footer"><span>Synced with your VitalEdge watch</span><span id="sim-mse">MSE —</span></div>
+                </div>
+
+                <!-- ============ HEALTH HISTORY ============ -->
+                <div class="ve-view" data-view="history" hidden>
+                  <h2 class="ve-title">Health History</h2>
+                  <div class="ve-stats">
+                    <div><strong id="ve-history-count">0</strong><span>Checks</span></div>
+                    <div><strong id="ve-history-flagged">0</strong><span>Flagged</span></div>
+                    <div><strong id="ve-history-latest">—</strong><span>Last score</span></div>
+                  </div>
+                  <ul class="ve-list" id="ve-history-list" aria-live="polite"></ul>
+                </div>
+
+                <!-- ============ ALERTS ============ -->
+                <div class="ve-view" data-view="alerts" hidden>
+                  <div class="ve-title-row"><h2 class="ve-title">Alerts</h2><button type="button" class="ve-link" id="ve-alerts-clear">Clear all</button></div>
+                  <ul class="ve-list" id="ve-alert-list" aria-live="polite"></ul>
+                </div>
+
+                <!-- ============ SOS ============ -->
+                <div class="ve-view" data-view="sos" hidden>
+                  <h2 class="ve-title">Emergency SOS</h2>
+                  <section class="ve-card ve-sos-card" id="ve-sos-card">
+                    <div class="ve-sos-ring" aria-hidden="true">SOS</div>
+                    <p class="ve-sos-state" id="ve-sos-state">You're not in an emergency. Use SOS only if you need help right now.</p>
+                    <button type="button" class="sim-button sim-button-emergency" id="sim-emergency-button" disabled>No active emergency</button>
+                    <button type="button" class="ve-sos-manual" id="ve-sos-manual">Send SOS now</button>
+                    <p class="ve-note" id="ve-sos-last">No SOS sent this session.</p>
+                  </section>
+                </div>
+              </div>
+
+              <section class="sim-result-fragment" id="sim-result-fragment" aria-live="polite" aria-hidden="true">
+                <div class="sim-result-top"><span class="sim-kicker">Assessment complete</span><button class="sim-result-close" id="sim-result-close" type="button" aria-label="Back to live monitor">×</button></div>
+                <div class="sim-result-icon">✓</div>
+                <p class="sim-result-label">Final risk score</p>
+                <strong class="sim-result-score" id="sim-result-score">—</strong>
+                <div class="sim-result-status" id="sim-result-status">NORMAL</div>
+                <p class="sim-result-reason" id="sim-result-reason">No significant anomaly detected</p>
+                <div class="sim-sos-notification"><span class="sim-notification-icon">!</span><span><strong>SOS notification</strong><small id="sim-sos-message">Assessment recorded. Continue monitoring.</small></span></div>
+                <button class="sim-result-back" id="sim-result-back" type="button">Back to live monitor</button>
+              </section>
+            </div>
+          </div>
+        </aside>
 
       </div>
 
@@ -409,7 +567,7 @@
     </div>
   </footer>
 
-  <script type="module" src="{{ url_for('static', filename='app.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='app.js', v='20260923-mobile-app-1') }}"></script>
 </body>
 
 </html>

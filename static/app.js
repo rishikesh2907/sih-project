@@ -106,6 +106,11 @@ const els = {
   btnAbnormal: document.getElementById('btn-abnormal'),
   btnResume: document.getElementById('btn-resume'),
   btnEmergencyCall: document.getElementById('btn-emergency-call'),
+  simRiskGrid: document.getElementById('sim-risk-grid'),
+  simTelemetry: document.querySelector('.sim-telemetry'),
+  simRiskMeterFill: document.getElementById('sim-risk-meter-fill'),
+  simRiskVisualFill: document.getElementById('sim-risk-visual-fill'),
+  simClock: document.getElementById('sim-clock'), simConnection: document.getElementById('sim-connection'), simStatus: document.getElementById('sim-status'), simStatusIcon: document.getElementById('sim-status-icon'), simStatusTitle: document.getElementById('sim-status-title'), simStatusCopy: document.getElementById('sim-status-copy'), simRiskLevel: document.getElementById('sim-risk-level'), simWindowState: document.getElementById('sim-window-state'), simBuffer: document.getElementById('sim-buffer'), simHealthScore: document.getElementById('sim-health-score'), simEnvironmentScore: document.getElementById('sim-environment-score'), simFinalScore: document.getElementById('sim-final-score'), simHr: document.getElementById('sim-hr'), simActivity: document.getElementById('sim-activity'), simTemperature: document.getElementById('sim-temperature'), simRespiration: document.getElementById('sim-respiration'), simEda: document.getElementById('sim-eda'), simEcg: document.getElementById('sim-ecg'), simWeatherMode: document.getElementById('sim-weather-mode'), simWeatherTemperature: document.getElementById('sim-weather-temperature'), simWeatherHumidity: document.getElementById('sim-weather-humidity'), simWeatherAqi: document.getElementById('sim-weather-aqi'), simWeatherUv: document.getElementById('sim-weather-uv'), simMse: document.getElementById('sim-mse'), simRiskButton: document.getElementById('sim-risk-button'), simAnomalyButton: document.getElementById('sim-anomaly-button'), simResumeButton: document.getElementById('sim-resume-button'), simEmergencyButton: document.getElementById('sim-emergency-button'), simResultFragment: document.getElementById('sim-result-fragment'), simResultScore: document.getElementById('sim-result-score'), simResultStatus: document.getElementById('sim-result-status'), simResultReason: document.getElementById('sim-result-reason'), simSosMessage: document.getElementById('sim-sos-message'), simResultClose: document.getElementById('sim-result-close'), simResultBack: document.getElementById('sim-result-back'),
 };
 
 function fmtTime(d){
@@ -610,6 +615,37 @@ function updateRiskScores(data){
   }
 }
 
+function formatWeatherValue(value, decimals, unit){ const number = Number(value); return Number.isFinite(number) ? `${number.toFixed(decimals)}${unit}` : '—'; }
+function updateMobileSimulator(data){
+  if (!els.simStatus || !data) return;
+  const status = String(data.status || 'WAITING').toUpperCase();
+  const isEmergency = status === 'EMERGENCY' || status === 'CRITICAL';
+  const isWarning = status === 'WARNING' || status === 'ABNORMAL' || status === 'ANOMALY';
+  const values = deviceState.displayValues || {};
+  const environment = deviceState.environment || {};
+  const riskScore = Number(data.final_risk_score);
+  const riskAlpha = (0.08 + Math.max(0, Math.min(1, Number.isFinite(riskScore) ? riskScore : 0)) * 0.24).toFixed(3);
+  const set = (element, value) => { if (element) element.textContent = value; };
+  const physical = (key, decimals, unit) => { const number = Number(values[key]); return Number.isFinite(number) ? `${number.toFixed(decimals)}${unit}` : '—'; };
+  els.simStatus.classList.toggle('is-warning', isWarning && !isEmergency); els.simStatus.classList.toggle('is-emergency', isEmergency);
+  els.simStatus.style.setProperty('--risk-alpha', riskAlpha);
+  if (els.simTelemetry) {
+    els.simTelemetry.classList.toggle('is-normal', !isWarning && !isEmergency);
+    els.simTelemetry.classList.toggle('is-warning', isWarning && !isEmergency);
+    els.simTelemetry.classList.toggle('is-critical', isEmergency);
+    els.simTelemetry.style.setProperty('--risk-alpha', riskAlpha);
+  }
+  set(els.simStatusIcon, isEmergency || isWarning ? '!' : '✓'); set(els.simStatusTitle, isEmergency ? 'EMERGENCY' : isWarning ? 'WARNING' : status); set(els.simStatusCopy, isEmergency ? 'Critical abnormality detected' : isWarning ? 'Abnormal pattern detected' : 'All vitals within baseline');
+  set(els.simBuffer, `${data.seconds_collected || 0}/60s`); set(els.simWindowState, `${data.seconds_collected || 0}/60s`); set(els.simRiskLevel, isEmergency ? 'CRITICAL' : isWarning ? 'ELEVATED' : 'NORMAL'); set(els.simHealthScore, formatBackendScore(data.health_score)); set(els.simEnvironmentScore, formatBackendScore(data.environment_score)); set(els.simFinalScore, formatBackendScore(data.final_risk_score));
+  const normalizedRisk = Math.max(0, Math.min(1, Number.isFinite(riskScore) ? riskScore : 0));
+  if (els.simRiskMeterFill) els.simRiskMeterFill.style.width = `${Math.round(normalizedRisk * 100)}%`;
+  if (els.simRiskVisualFill) els.simRiskVisualFill.style.width = `${Math.round(normalizedRisk * 100)}%`;
+  set(els.simHr, physical('HR/BVP', 0, ' BPM')); set(els.simActivity, physical('ACC', 2, ' g')); set(els.simTemperature, physical('TEMP', 1, '°C')); set(els.simRespiration, physical('RESP', 0, ' br/min')); set(els.simEda, physical('EDA', 2, ' µS')); set(els.simEcg, physical('ECG', 2, ' mV'));
+  set(els.simWeatherMode, String(deviceState.environmentMode || 'NORMAL').toUpperCase()); set(els.simWeatherTemperature, formatWeatherValue(environment.temperature, 1, '°C')); set(els.simWeatherHumidity, formatWeatherValue(environment.humidity, 0, '%')); set(els.simWeatherAqi, formatWeatherValue(environment.aqi, 0, '')); set(els.simWeatherUv, formatWeatherValue(environment.uv, 1, '')); set(els.simMse, `MSE ${formatBackendScore(data.anomaly_score)}`); set(els.simClock, fmtTime(deviceState.updatedAt).slice(0, 5));
+  els.simConnection.classList.toggle('is-offline', !deviceState.connected); els.simConnection.innerHTML = `<i></i> ${deviceState.connected ? 'LIVE' : 'OFFLINE'}`;
+  if (els.simEmergencyButton) { els.simEmergencyButton.disabled = !isEmergency; els.simEmergencyButton.classList.toggle('is-active', isEmergency); els.simEmergencyButton.textContent = isEmergency ? 'Send SOS alert' : 'No active emergency'; }
+  updateMobileApp(data);
+}
 
 /* ---------------------------------------------------------------
    SEND ONE SENSOR SAMPLE TO FLASK
@@ -722,6 +758,43 @@ async function fetchBackendStatus(){
   }
   updateFromBackend(await response.json());
 }
+
+async function assessRisk(){
+  if (isSending || !els.simRiskButton) return;
+  const originalLabel = els.simRiskButton.textContent; els.simRiskButton.disabled = true; els.simRiskButton.textContent = 'Assessing...';
+  try {
+    const response = await fetch('/api/risk-assessment', { method:'POST', headers:{'Content-Type':'application/json'}, cache:'no-store', body:JSON.stringify({ values:generateSensorSample() }) });
+    const result = await response.json(); if (!response.ok) throw new Error(result.error || `Risk assessment HTTP ${response.status}`);
+    const riskThreshold = Number(result.risk_threshold);
+    const overallRisk = Number(result.final_risk_score);
+    const thresholdExceeded = result.window_ready && Number.isFinite(overallRisk) && Number.isFinite(riskThreshold) && overallRisk > riskThreshold;
+    setConnected(true); updateFromBackend(result);
+    if (thresholdExceeded) await simulateAbnormality(false);
+    showRiskResult(result, thresholdExceeded);
+    els.simRiskButton.textContent = result.window_ready ? `Final risk ${formatBackendScore(result.final_risk_score)}` : `Collecting ${result.seconds_collected}/60s`;
+  } catch (err) { setConnected(false); els.simRiskButton.textContent = 'Assessment failed'; throw err; }
+  finally { setTimeout(()=>{ els.simRiskButton.disabled=false; els.simRiskButton.textContent=originalLabel; },1800); }
+}
+function showRiskResult(result, abnormalityNotified = false){
+  if (!els.simResultFragment) return;
+  veRecordAssessment(result, 'Assessment');
+  const status = String(result.status || 'COLLECTING').toUpperCase(); const critical = status === 'CRITICAL' || status === 'EMERGENCY'; const warning = status === 'WARNING' || status === 'ABNORMAL' || status === 'ANOMALY';
+  const riskScore = Number(result.final_risk_score);
+  const normalizedRisk = Math.max(0, Math.min(1, Number.isFinite(riskScore) ? riskScore : 0));
+  const riskAlpha = (0.08 + normalizedRisk * 0.20).toFixed(3);
+  if (els.simRiskGrid) {
+    els.simRiskGrid.classList.toggle('is-normal', !warning && !critical);
+    els.simRiskGrid.classList.toggle('is-warning', warning && !critical);
+    els.simRiskGrid.classList.toggle('is-critical', critical);
+    els.simRiskGrid.style.setProperty('--risk-alpha', riskAlpha);
+  }
+  if (els.simRiskVisualFill) {
+    els.simRiskVisualFill.style.width = `${Math.round(normalizedRisk * 100)}%`;
+  }
+  els.simResultFragment.classList.toggle('is-warning', warning && !critical); els.simResultFragment.classList.toggle('is-critical', critical); els.simResultScore.textContent = result.window_ready ? formatBackendScore(result.final_risk_score) : `— (${result.seconds_collected || 0}/60s)`; els.simResultStatus.textContent=status; els.simResultReason.textContent=result.risk_reason || 'Assessment recorded.'; els.simSosMessage.textContent=abnormalityNotified ? 'Overall risk exceeded the threshold. Abnormality simulation enabled.' : critical ? 'Critical risk detected. Send SOS alert now.' : warning ? 'Elevated risk detected. Keep responder under observation.' : 'Assessment recorded. Continue monitoring.'; els.simResultFragment.classList.add('is-visible'); els.simResultFragment.setAttribute('aria-hidden','false');
+}
+function hideRiskResult(){ if (!els.simResultFragment) return; els.simResultFragment.classList.remove('is-visible'); els.simResultFragment.setAttribute('aria-hidden','true'); }
+
 /* ---------------------------------------------------------------
    3. HEALTH-STATE ENGINE — the one place status text/colour comes from
    --------------------------------------------------------------- */
@@ -807,6 +880,7 @@ function updateDashboard(){
   drawSparkline(els.graphEcg, graphHistories.ecg, '#f2b84b');
 
   updateWeather();
+  updateMobileSimulator({status:deviceState.statusRaw, anomaly_score:deviceState.anomalyScore, seconds_collected:deviceState.secondsCollected, health_score:els.healthScore.textContent, environment_score:els.environmentScore.textContent, final_risk_score:els.finalRiskScore.textContent});
 }
 
 function updateWeather(){
@@ -865,12 +939,12 @@ function drawSparkline(canvas, data, color){
 /* ---------------------------------------------------------------
    5. BUTTONS — these only ever ask the backend to change mode
    --------------------------------------------------------------- */
-async function simulateAbnormality(){
+async function simulateAbnormality(sendSample = true){
   sensorMode = 'abnormal';
   try{
     await fetch('/api/simulate-abnormal', { method:'POST', headers:{ 'Content-Type':'application/json' } });
   } catch (err){ /* sendSensorSample() below will surface the offline state */ }
-  await sendSensorSample();
+  if (sendSample) await sendSensorSample();
 }
 async function resumeNormal(){
   sensorMode = 'normal';
@@ -904,6 +978,7 @@ async function sendSosAlert(){
     if (!response.ok) throw new Error(result.message || 'SOS request failed');
 
     els.btnEmergencyCall.textContent = 'SOS sent - mark false alarm';
+    veRecordAlert('sos', 'SOS alert sent', result.message || 'Your emergency contact has been notified.');
   } catch (err) {
     console.error('Unable to send SOS alert:', err);
     els.btnEmergencyCall.textContent = 'SOS alert failed - retrying';
@@ -927,6 +1002,7 @@ async function reportFalseAlarm(){
     });
     if (!response.ok) throw new Error(`False alarm HTTP ${response.status}`);
     els.btnEmergencyCall.textContent = 'False alarm reported';
+    veRecordAlert('info', 'False alarm reported', 'The emergency was marked as a false alarm.');
   } catch (err) {
     console.error('Unable to report false alarm:', err);
     els.btnEmergencyCall.textContent = 'False alarm report failed';
@@ -938,9 +1014,158 @@ function flashButton(btn){
   btn.style.transform = 'scale(0.97)';
   setTimeout(()=> btn.style.transform = '', 140);
 }
+
+async function runSimulatorAction(button, action, busyLabel, successLabel){
+  if (!button || button.disabled) return;
+  const originalLabel = button.textContent; button.disabled=true; button.textContent=busyLabel;
+  try { await action(); button.textContent=successLabel; if (button === els.simAnomalyButton) showRiskResult({ status:deviceState.statusRaw, window_ready:deviceState.windowReady, seconds_collected:deviceState.secondsCollected, final_risk_score:els.finalRiskScore.textContent, health_score:els.healthScore.textContent, environment_score:els.environmentScore.textContent, risk_reason:deviceState.statusRaw === 'ABNORMAL' ? 'Abnormal pattern detected' : 'Assessment recorded.' }); } catch (err) { button.textContent='Action failed'; console.error('Simulator action failed:',err); }
+  finally { setTimeout(()=>{ button.disabled = button === els.simEmergencyButton ? deviceState.status !== 'emergency' : false; button.textContent=originalLabel; },1500); }
+}
+
 els.btnAbnormal.addEventListener('click', ()=>{ simulateAbnormality(); flashButton(els.btnAbnormal); });
 els.btnResume.addEventListener('click', ()=>{ resumeNormal(); flashButton(els.btnResume); });
 els.btnEmergencyCall.addEventListener('click', ()=>{ reportFalseAlarm(); flashButton(els.btnEmergencyCall); });
+els.simRiskButton.addEventListener('click', ()=>{ assessRisk().catch(err=>console.error('Risk assessment failed:',err)); flashButton(els.simRiskButton); });
+els.simAnomalyButton.addEventListener('click', ()=>{ runSimulatorAction(els.simAnomalyButton,simulateAbnormality,'Simulating...','Abnormality enabled'); flashButton(els.simAnomalyButton); });
+els.simResumeButton.addEventListener('click', ()=>{ runSimulatorAction(els.simResumeButton,resumeNormal,'Resetting...','Normal mode enabled'); flashButton(els.simResumeButton); });
+els.simEmergencyButton.addEventListener('click', ()=>{ runSimulatorAction(els.simEmergencyButton,sendSosAlert,'Sending SOS...','SOS sent'); flashButton(els.simEmergencyButton); });
+els.simResultClose.addEventListener('click',hideRiskResult); els.simResultBack.addEventListener('click',hideRiskResult);
+
+/* ---------------------------------------------------------------
+   MOBILE APP SHELL — navigation, Health History and Alerts.
+   Presentation-only: everything here is derived from the same
+   backend results the simulator already receives. SOS reuses the
+   existing sendSosAlert() flow (POST /api/send-sos).
+   --------------------------------------------------------------- */
+const veApp = { view:'home', history:[], alerts:[], unread:0, lastKind:null, lastRecorded:0, sosTimer:null };
+const veLabels = { normal:'Normal', warning:'Elevated', critical:'Critical' };
+const veIcons = { normal:'✓', warning:'!', critical:'!', sos:'SOS', info:'i' };
+const $ve = (id) => document.getElementById(id);
+
+function veKind(status){
+  const s = String(status || '').toUpperCase();
+  if (s === 'EMERGENCY' || s === 'CRITICAL') return 'critical';
+  if (s === 'WARNING' || s === 'ABNORMAL' || s === 'ANOMALY') return 'warning';
+  return 'normal';
+}
+function veEsc(text){ return String(text).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function veScore(value){ const n = Number(value); return Number.isFinite(n) ? n.toFixed(2) : null; }
+
+function veShowView(name){
+  veApp.view = name;
+  document.querySelectorAll('.ve-view').forEach(view => { view.hidden = view.dataset.view !== name; });
+  document.querySelectorAll('.ve-nav-btn').forEach(btn => {
+    const active = btn.dataset.view === name;
+    btn.classList.toggle('is-active', active);
+    if (active) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
+  });
+  const scroller = document.querySelector('.ve-views'); if (scroller) scroller.scrollTop = 0;
+  if (name === 'alerts') { veApp.unread = 0; veRenderBadge(); }
+  if (name !== 'sos') veDisarmSos();
+}
+
+function veRecordAssessment(result, source){
+  if (!result) return;
+  const kind = veKind(result.status);
+  const ready = result.window_ready !== false && Number.isFinite(Number(result.final_risk_score));
+  veApp.history.unshift({
+    time:new Date(), kind, source:source || 'Assessment', ready, seconds:result.seconds_collected || 0,
+    score:veScore(result.final_risk_score), health:veScore(result.health_score), env:veScore(result.environment_score),
+    note:result.risk_reason || (kind === 'normal' ? 'No significant anomaly detected' : 'Abnormal pattern detected')
+  });
+  veApp.history.length = Math.min(veApp.history.length, 30);
+  veApp.lastRecorded = Date.now();
+  veRenderHistory();
+}
+
+function veRecordAlert(kind, title, detail){
+  veApp.alerts.unshift({ time:new Date(), kind, title, detail });
+  veApp.alerts.length = Math.min(veApp.alerts.length, 40);
+  if (veApp.view !== 'alerts') veApp.unread += 1;
+  if (kind === 'sos' && $ve('ve-sos-last')) $ve('ve-sos-last').textContent = `Last SOS sent at ${fmtTime(new Date())}.`;
+  veRenderAlerts(); veRenderBadge();
+}
+
+function veRenderBadge(){
+  const badge = $ve('ve-alert-badge'); if (!badge) return;
+  badge.textContent = veApp.unread > 9 ? '9+' : String(veApp.unread);
+  badge.hidden = veApp.unread === 0;
+}
+
+function veRenderHistory(){
+  const list = $ve('ve-history-list'); if (!list) return;
+  const items = veApp.history;
+  $ve('ve-history-count').textContent = items.length;
+  $ve('ve-history-flagged').textContent = items.filter(e => e.kind !== 'normal').length;
+  const latest = items.find(e => e.score);
+  $ve('ve-history-latest').textContent = latest ? latest.score : '—';
+  list.innerHTML = items.length ? items.map(e => `
+    <li class="ve-entry is-${e.kind}">
+      <span class="ve-dot">${veIcons[e.kind]}</span>
+      <span class="ve-entry-title">${veLabels[e.kind]}</span>
+      <span class="ve-entry-score">${e.ready && e.score ? e.score : '—'}</span>
+      <span class="ve-entry-meta">${veEsc(e.source)} · ${fmtTime(e.time)}</span>
+      <span class="ve-entry-body">${e.ready ? `${veEsc(e.note)}${e.health && e.env ? ` · Health ${e.health} · Environment ${e.env}` : ''}` : `Collecting data (${e.seconds}/60s)`}</span>
+    </li>`).join('') : '<li class="ve-empty">No checks yet. Run a risk assessment from Home, or wait for the next automatic check.</li>';
+}
+
+function veRenderAlerts(){
+  const list = $ve('ve-alert-list'); if (!list) return;
+  list.innerHTML = veApp.alerts.length ? veApp.alerts.map(a => `
+    <li class="ve-entry is-${a.kind === 'info' ? 'normal' : a.kind}">
+      <span class="ve-dot">${veIcons[a.kind] || '!'}</span>
+      <span class="ve-entry-title">${veEsc(a.title)}</span>
+      <span></span>
+      <span class="ve-entry-meta">${fmtTime(a.time)}</span>
+      <span class="ve-entry-body">${veEsc(a.detail || '')}</span>
+    </li>`).join('') : '<li class="ve-empty">No alerts. Abnormal readings and SOS events will appear here.</li>';
+}
+
+/* Called from updateMobileSimulator() on every backend update. */
+function updateMobileApp(data){
+  const kind = veKind(deviceState.statusRaw);
+  const sosNav = document.querySelector('.ve-nav-sos');
+  if (sosNav) sosNav.classList.toggle('is-emergency', kind === 'critical');
+  const sosCard = $ve('ve-sos-card'); if (sosCard) sosCard.classList.toggle('is-emergency', kind === 'critical');
+  const sosState = $ve('ve-sos-state');
+  if (sosState) sosState.textContent = kind === 'critical'
+    ? 'Critical risk detected. Your emergency contact is being alerted.'
+    : "You're not in an emergency. Use SOS only if you need help right now.";
+
+  const result = {
+    status:deviceState.statusRaw, window_ready:deviceState.windowReady, seconds_collected:deviceState.secondsCollected,
+    final_risk_score:data.final_risk_score, health_score:data.health_score, environment_score:data.environment_score,
+    risk_reason:els.alertLine2 ? els.alertLine2.textContent : ''
+  };
+  const changed = veApp.lastKind !== null && veApp.lastKind !== kind;
+  if (changed || (veApp.lastKind === null && kind !== 'normal')) {
+    if (kind === 'critical') veRecordAlert('critical', 'Emergency detected', 'Critical risk level reached. Check your SOS options.');
+    else if (kind === 'warning') veRecordAlert('warning', 'Abnormal reading detected', result.risk_reason || 'Vitals moved away from your baseline.');
+    else veRecordAlert('info', 'Back to normal', 'Your vitals returned to baseline.');
+  }
+  if (deviceState.windowReady && (changed || Date.now() - veApp.lastRecorded > 30000)) {
+    veRecordAssessment(result, changed ? 'Status change' : 'Routine check');
+  }
+  veApp.lastKind = kind;
+}
+
+/* Manual SOS: two taps, then the existing sendSosAlert() flow. */
+function veDisarmSos(){
+  const btn = $ve('ve-sos-manual'); clearTimeout(veApp.sosTimer);
+  if (btn && !btn.disabled) { btn.classList.remove('is-armed'); btn.textContent = 'Send SOS now'; }
+}
+document.querySelectorAll('.ve-nav-btn').forEach(btn => btn.addEventListener('click', () => veShowView(btn.dataset.view)));
+$ve('ve-alerts-clear').addEventListener('click', () => { veApp.alerts = []; veApp.unread = 0; veRenderAlerts(); veRenderBadge(); });
+$ve('ve-sos-manual').addEventListener('click', async () => {
+  const btn = $ve('ve-sos-manual');
+  if (!btn.classList.contains('is-armed')) {
+    btn.classList.add('is-armed'); btn.textContent = 'Tap again to confirm SOS';
+    veApp.sosTimer = setTimeout(veDisarmSos, 4000); return;
+  }
+  clearTimeout(veApp.sosTimer); btn.disabled = true; btn.classList.remove('is-armed'); btn.textContent = 'Sending SOS...';
+  try { await sendSosAlert(); } finally { btn.disabled = false; btn.textContent = 'Send SOS now'; }
+});
+veRenderHistory(); veRenderAlerts();
 
 /* ---------------------------------------------------------------
    6. MAIN SENSOR LOOP
